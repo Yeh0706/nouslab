@@ -1,0 +1,10 @@
+# 系統產生的檔案
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 本機工具設定、快照與規格書（不上傳）
+.claude/
+.vscode/
+快照/
+規格書.md
