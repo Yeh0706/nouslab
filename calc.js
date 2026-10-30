@@ -159,6 +159,7 @@
   //   eagle：施放終結技後自己行動提前 pct（預設晨昏交界的翔鷹 4 件 25%）。{ every, first } = 第 first 動起每 every 動開一次大
   //          （「動」含額外回合：額外回合也會回能量，充滿就在同一行動值開大）；
   //          { auto: true } = 跟著該角色自己的終結技時機（星神★阿哈、真珠）
+  //          ahaExtra：施放終結技時使阿哈立即獲得 1 個額外回合（爻光終結技）
   // 第 1 次行動 = 10000 ÷ 速度 × (1 − 行動提前)，之後每次再加 10000 ÷ 速度
   // 行動提前 = 剩餘行動值減少 pct × 10000 ÷ 速度，最低降到當下；同一時間點依隊伍順序（阿哈時刻排最後）
   // opts.pulls: [{ key: '隊伍序號:第幾次行動', pct }]：在該次行動時施放星神★阿哈終結技，使阿哈時刻行動提前 pct
@@ -192,6 +193,7 @@
         act.ult = true;
         advance(s, e.pct ?? EAGLE, t);
         if (e.allPct) st.forEach(x => { if (!x.u.aha) advance(x, e.allPct, t); });
+        if (e.ahaExtra) ahaExtraTurn(t);
       }
       // 拉條戰技（角色自己的技能）：skill = { idx, pct }，每次行動指定 1 名隊友行動提前
       const sk = s.u.skill;
@@ -226,6 +228,14 @@
       if (act) act.pull = true;
       const pct = pull.pct + (pullCount++ === 0 ? opts.firstPullBonus || 0 : 0);
       st.forEach(s => { if (s.u.aha) advance(s, pct, t); if (s.u.aeon && s.u.eagle) advance(s, s.u.eagle.pct ?? EAGLE, t); });
+    };
+    // 爻光終結技：阿哈立即獲得 1 個額外回合＝多一次阿哈時刻（不影響原本阿哈時刻的時間）；結束時一樣觸發火花 2 星魂
+    const ahaExtraTurn = t => {
+      const a = st.find(s => s.u.aha); if (!a) return;
+      const act = { ...a.u, idx: a.idx, av: t, extra: true, exKind: 'yaoguang', key: `${a.idx}:e${++a.e}` };
+      acts.push(act);
+      st.forEach(s => { if (s.u.afterAha) extraRow(s, t, 'aha'); });
+      ahaPull(act.key, t, act);
     };
     if (opts.opening) st.forEach(s => { if (s.u.afterAha) extraRow(s, 0, 'aha'); });
     if (P && P.first === 'start') pearlUlt(0);

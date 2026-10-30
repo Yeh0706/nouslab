@@ -633,7 +633,8 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 @media (max-width: 480px) { .th-cards { grid-template-columns: minmax(0, 1fr); } .th-t th, .th-t td { padding: 4px 3px; } }
 </style>
 <script>
-// 深色模式：沒選過就跟系統；選過就記在這台瀏覽器。放在最前面，避免先閃一下另一種顏色
+// 深色模式：預設深色；選過就記在這台瀏覽器。放在最前面，避免先閃一下另一種顏色
+document.documentElement.dataset.theme = 'dark';
 try { const t = localStorage.getItem('nouslab-theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch {}
 // 已選簡體：先藏起頁面並同步載入 OpenCC，轉換完再顯示，避免先閃一下繁體（最多藏 2 秒）
 try { if (localStorage.getItem('nouslab-lang') === 'hans') { document.documentElement.classList.add('lang-wait'); document.write('<script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/umd/t2cn.js"><\/script>'); setTimeout(() => document.documentElement.classList.remove('lang-wait'), 2000); } } catch {}
@@ -1372,9 +1373,11 @@ function speedModel() {
     // 拉條戰技（布洛妮婭／花火／星期日）：自己每次行動都拉 1 名隊友
     const ps = PULL_SKILLS[c.pullSkill];
     const skill = c.id === 'other' && ps && pt >= 0 ? { idx: pt, pct: ps[1], every: 1, name: ps[0] } : null;
-    const eagle = !(selfPct > 0) && !allPct ? null
+    // 爻光終結技使阿哈立即獲得 1 個額外回合：爻光一定要有終結技時機（每 X 動、第幾動開首個終結技）
+    const ahaExtra = c.id === 'yaoguang';
+    const eagle = !(selfPct > 0) && !allPct && !ahaExtra ? null
       : EAGLE_AUTO.includes(c.id) ? { auto: true, pct: selfPct }
-      : { pct: selfPct, allPct, every: Math.max(1, Math.round(num(c.every)) || 1), first: Math.max(1, Math.round(num(c.first)) || 1) };
+      : { pct: selfPct, allPct, ahaExtra, every: Math.max(1, Math.round(num(c.every)) || 1), first: Math.max(1, Math.round(num(c.first)) || 1) };
     return { name, icon: m.icon, base, elation: !!m.elation, panel: num(c.spd), speed: H.battleSpeed(num(c.spd), base, buff), adv: Math.min(1, adv), afterAha: eidOn(c, 'sparxie'), aeon: c.id === 'aha', eagle, skill };
   });
   // 真珠終結技：美學底本只能選其他歡愉角色；依隊伍歡愉角色數 1／2／3 人行動提前 10%／15%／30%，4 人以上改給額外回合
@@ -1533,7 +1536,7 @@ function relicSection(c, i, extra = '') {
       <div class="pick" role="radiogroup" aria-label="遺器">${opts.map(([k, ic, l]) => pickHTML('radio', idp + 'relic', base + '.relic', relic === k, [k, ic], l, 'data-struct')).join('')}</div></div>
 
     ${extra}
-    ${relic === 'other' && !(c.id === 'other' && +c.ddd) ? '' : auto
+    ${relic === 'other' && !(c.id === 'other' && +c.ddd) && c.id !== 'yaoguang' ? '' : auto
       ? `<p class="hint">依${c.id === 'pearl' ? '真珠' : '星神★阿哈'}設定的終結技時機觸發。</p>`
       : `<div class="adv-inline"><span>每</span>${n('every', c.every)}<span>動充滿終結技</span>${tipHTML('每隔幾次行動能量充滿、施放一次終結技')}</div>
         <div class="adv-inline"><span>第</span>${n('first', c.first)}<span>動開啟首個終結技</span></div>`}`;
@@ -1543,6 +1546,8 @@ function relicSection(c, i, extra = '') {
 // on：依目前隊伍判斷是否觸發；「你將起身歌唱」排軸沒有計入，永遠是暗的
 const SPD_FX = [
   ['星魂與行跡', [
+    ['星神★阿哈秘技', '進入戰鬥後使阿哈立即獲得1個額外回合（0 行動值的阿哈時刻）', cs => cs.some(c => c.id === 'aha')],
+    ['爻光終結技', '使阿哈立即獲得1個額外回合', cs => cs.some(c => c.id === 'yaoguang')],
     ['火花 2 魂', '阿哈時刻結束時使火花獲得1個額外回合', cs => cs.some(c => eidOn(c, 'sparxie'))],
     ['真珠 2 魂', '施放終結技時，使除真珠和【美學底本】外的其他我方「歡愉」命途角色也觸發行動提前效果', cs => cs.some(c => eidOn(c, 'pearl'))],
     ['爻光 2 魂', '結界持續期間，我方全體目標速度提高12%', cs => cs.some(c => eidOn(c, 'yaoguang'))],
@@ -1605,7 +1610,7 @@ function renderSpeed() {
 
 function tlHTML(title, m, maxAV, mode) {
   const acts = H.timeline(m.all, maxAV, { pulls: m.pulls, firstPullBonus: m.firstPullBonus, pearl: m.pearl, opening: !!(m.aha && hasAeonAha()) });
-  // 0 行動值也算第 1 動：隊伍有星神★阿哈時（秘技：進入戰鬥立即獲得額外回合）0 行動值就是阿哈時刻，
+  // 0 行動值也算第 1 動：隊伍有星神★阿哈時（星神★阿哈秘技：進入戰鬥後使阿哈立即獲得 1 個額外回合）0 行動值就是阿哈時刻，
   // 阿哈時刻結束時的額外回合（火花 2 星魂）也接在後面；沒有阿哈時，真珠模式或真珠開場開大才顯示「戰鬥開始」
   const head = [];
   if (m.aha && hasAeonAha()) {
@@ -1618,7 +1623,7 @@ function tlHTML(title, m, maxAV, mode) {
     // 阿哈時刻那一列也能按：在阿哈時刻結束時開終結技，拉下一個阿哈時刻
     if (mode === 'aha' && (!a.extra || a.key) && !a.start) {
       const on = a.opening ? (S.speed.ahaUlt || []).includes('start') : a.pull;
-      return `<input type="checkbox" class="ult-dot" data-ult="${a.key}" ${on ? 'checked' : ''} title="${a.aha ? '在這次阿哈時刻結束時' : '在這次行動時'}施放星神★阿哈終結技" aria-label="${a.aha ? `在第 ${a.opening ? 1 : a.n + 1} 次阿哈時刻結束時` : a.extra ? `在${esc(a.name)}的額外回合時` : `在${esc(a.name)}第 ${a.n} 次行動時`}施放星神★阿哈終結技">`;
+      return `<input type="checkbox" class="ult-dot" data-ult="${a.key}" ${on ? 'checked' : ''} title="${a.aha ? '在這次阿哈時刻結束時' : '在這次行動時'}施放星神★阿哈終結技" aria-label="${a.aha ? (a.extra ? '在這次阿哈時刻（爻光終結技的額外回合）結束時' : `在第 ${a.opening ? 1 : a.n + 1} 次阿哈時刻結束時`) : a.extra ? `在${esc(a.name)}的額外回合時` : `在${esc(a.name)}第 ${a.n} 次行動時`}施放星神★阿哈終結技">`;
     }
     if (mode === 'pearl' && (isStart(a) || (!a.aha && !a.extra))) {
       const key = isStart(a) ? 'start' : a.key;
@@ -1631,7 +1636,7 @@ function tlHTML(title, m, maxAV, mode) {
     + (mode !== 'pearl' && (a.pearlFirst || (isStart(a) && m.pearl?.first === 'start')) ? pearlMark : '');
   // 「（已提前）」只標在阿哈時刻上；星神★阿哈 6 星魂時，第一次被拉的阿哈時刻標「（已提前 100%）」
   const firstPulled = m.firstPullBonus ? acts.find(a => a.aha && a.pulled) : null;
-  const row = (a, n) => `<li class="${a.aha ? 'aha' : ''}${a.extra ? `ex${a.exKind === 'aha' ? ' ex-r' : ''}` : ''}${a.start ? ' start' : ''}"><span class="no">${n + 1}</span>${a.start ? '' : avatarHTML(a)}<span class="nm"><span class="nm-t" ${a.extra ? 'title="額外回合"' : ''}>${esc(a.name)}${a.aha && a.pulled ? (a === firstPulled ? '（已提前 100%）' : '（已提前）') : ''}</span>${a.extra ? '<span class="ex-t">（額外）</span>' : ''}${a.ult ? '<span class="tag" title="施放終結技">Q</span>' : ''}${a.skill ? '<span class="tag" title="施放拉條戰技">E</span>' : ''}${marks(a)}</span>${dot(a)}<span class="av">${fmt1(a.av)}</span></li>`;
+  const row = (a, n) => `<li class="${a.aha ? 'aha' : ''}${a.extra && !a.aha ? `ex${a.exKind === 'aha' ? ' ex-r' : ''}` : ''}${a.start ? ' start' : ''}"><span class="no">${n + 1}</span>${a.start ? '' : avatarHTML(a)}<span class="nm"><span class="nm-t" ${a.extra ? 'title="額外回合"' : ''}>${esc(a.name)}${a.aha && a.pulled ? (a === firstPulled ? '（已提前 100%）' : '（已提前）') : ''}</span>${a.extra ? '<span class="ex-t">（額外）</span>' : ''}${a.ult ? '<span class="tag" title="施放終結技">Q</span>' : ''}${a.skill ? '<span class="tag" title="施放拉條戰技">E</span>' : ''}${marks(a)}</span>${dot(a)}<span class="av">${fmt1(a.av)}</span></li>`;
   return `<div class="tl"><div class="tl-h">${title}<span>${maxAV}AV</span></div>
     <ol>${[...head, ...acts].map(row).join('') || '<li class="hint">沒有行動</li>'}</ol></div>`;
 }
