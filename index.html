@@ -1543,7 +1543,7 @@ function relicSection(c, i, extra = '') {
 }
 
 // 說明欄：星魂、行跡、光錐、遺器與位面飾品的效果原文；目前隊伍有觸發的亮起
-// on：依目前隊伍判斷是否觸發；「你將起身歌唱」排軸沒有計入，永遠是暗的
+// on：依目前隊伍判斷是否觸發
 const SPD_FX = [
   ['星魂與行跡', [
     ['星神★阿哈秘技', '進入戰鬥後使阿哈立即獲得1個額外回合（0 行動值的阿哈時刻）', cs => cs.some(c => c.id === 'aha')],
@@ -1558,7 +1558,6 @@ const SPD_FX = [
   ]],
   ['光錐', [
     ['舞！舞！舞！', '當裝備者施放終結技後，我方全體行動提前16/18/20/22/24%。', cs => cs.some(c => c.id === 'other' && +c.ddd > 0)],
-    ['你將起身歌唱', '使裝備者的生命上限提高30/38/45/53/60%，裝備者施放終結技後，為我方恢復1點戰技點。進入戰鬥時，使裝備者的行動提前30/33/35/38/40%，並使裝備者獲得【新聲】，持續2回合。裝備者持有【新聲】時，我方全體速度提高20/25/30/35/40%。', () => false],
   ]],
   ['遺器與位面飾品', [
     ['神的瞬息歡愉', '使裝備者的速度提高6%。當裝備者的歡愉度大於等於40%時，進入戰鬥時立刻使行動提前40%', cs => cs.some(c => c.planar === 'elation' && (SPD_CHARS[c.id]?.elation || c.id === 'other'))],
@@ -1623,11 +1622,12 @@ function tlHTML(title, m, maxAV, mode) {
     // 阿哈時刻那一列也能按：在阿哈時刻結束時開終結技，拉下一個阿哈時刻
     if (mode === 'aha' && (!a.extra || a.key) && !a.start) {
       const on = a.opening ? (S.speed.ahaUlt || []).includes('start') : a.pull;
-      return `<input type="checkbox" class="ult-dot" data-ult="${a.key}" ${on ? 'checked' : ''} title="${a.aha ? '在這次阿哈時刻結束時' : '在這次行動時'}施放星神★阿哈終結技" aria-label="${a.aha ? (a.extra ? '在這次阿哈時刻（爻光終結技的額外回合）結束時' : `在第 ${a.opening ? 1 : a.n + 1} 次阿哈時刻結束時`) : a.extra ? `在${esc(a.name)}的額外回合時` : `在${esc(a.name)}第 ${a.n} 次行動時`}施放星神★阿哈終結技">`;
+      return `<input type="checkbox" class="ult-dot" data-ult="${a.key}" ${on ? 'checked' : ''} title="${a.aha ? '在這次阿哈時刻結束時' : a.extra ? '在這個額外回合結束後' : '在這次行動時'}施放星神★阿哈終結技" aria-label="${a.aha ? (a.extra ? '在這次阿哈時刻（爻光終結技的額外回合）結束時' : `在第 ${a.opening ? 1 : a.n + 1} 次阿哈時刻結束時`) : a.extra ? `在${esc(a.name)}的額外回合結束後` : `在${esc(a.name)}第 ${a.n} 次行動時`}施放星神★阿哈終結技">`;
     }
-    if (mode === 'pearl' && (isStart(a) || (!a.aha && !a.extra))) {
+    // 真珠：任何一列都能選（阿哈時刻、額外回合＝在那一列結束後施放）
+    if (mode === 'pearl' && (isStart(a) || a.key)) {
       const key = isStart(a) ? 'start' : a.key;
-      return `<input type="radio" class="ult-dot pearl" name="pearl-first-${maxAV}" data-pdot="${key}" ${m.pearl.first === key ? 'checked' : ''} title="真珠第 1 次開終結技的時機" aria-label="${isStart(a) ? '戰鬥開始時' : `在${esc(a.name)}第 ${a.n} 次行動時`}施放真珠第 1 次終結技">`;
+      return `<input type="radio" class="ult-dot pearl" name="pearl-first-${maxAV}" data-pdot="${key}" ${m.pearl.first === key ? 'checked' : ''} title="真珠第 1 次開終結技的時機" aria-label="${isStart(a) ? '戰鬥開始時' : a.extra || a.aha ? `在${esc(a.name)}${a.extra ? '的額外回合' : ''}結束後` : `在${esc(a.name)}第 ${a.n} 次行動時`}施放真珠第 1 次終結技">`;
     }
     return '';
   };

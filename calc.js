@@ -167,9 +167,10 @@
   // opts.opening：開場 0 行動值有阿哈時刻（星神★阿哈秘技），阿哈時刻結束時的額外回合（火花 2 星魂）也排在 0
   // 額外回合的 key 為「隊伍序號:e第幾次行動（含額外回合）」，可以在這一列插入星神★阿哈終結技
   // opts.pearl: { idx, target, pct, extra, e2, first }：真珠終結技
-  //   first = 第一次施放的時機（'start' = 開場 0 行動值，或某次行動的 key）；之後每隔真珠 2 次行動施放一次
-  //   效果：美學底本行動提前 pct；extra（4 名以上歡愉角色）時改為獲得 1 個額外回合；
-  //         e2（2 星魂）時其他歡愉角色也行動提前 pct，額外回合時美學底本也同時行動提前
+  //   first = 第一次施放的時機（'start' = 開場 0 行動值，或任一列的 key：一般行動、阿哈時刻、額外回合都可以，
+  //           在那一列結束後施放）；之後每隔真珠 2 次行動施放一次
+  //   效果：美學底本行動提前 pct；extra（4 名以上歡愉角色）時另外獲得 1 個額外回合；
+  //         e2（2 星魂）時其他歡愉角色也行動提前 pct
   const EAGLE = 0.25;
   function timeline(units, maxAV, opts = {}) {
     const EPS = 1e-9;
@@ -206,6 +207,7 @@
       acts.push(act);
       turnEffects(s, t, act);
       ahaPull(act.key, t, act);
+      pearlAt(act.key, t, act);
     };
 
     const P = opts.pearl && st[opts.pearl.idx] ? { ...opts.pearl, fired: false, nextN: null } : null;
@@ -213,11 +215,18 @@
       const ps = st[P.idx]; const tg = st[P.target];
       P.fired = true; P.nextN = ps.n + 2;
       if (tg) {
-        if (!P.extra || P.e2) advance(tg, P.pct, t);
+        advance(tg, P.pct, t);
         if (P.extra) extraRow(tg, t, 'pearl');
       }
       if (P.e2) st.forEach(s => { if (s.u.elation && s.idx !== P.idx && s.idx !== P.target) advance(s, P.pct, t); });
       if (ps.u.eagle) advance(ps, ps.u.eagle.pct ?? EAGLE, t);
+    };
+    // 真珠第一次終結技：選在哪一列，就在那一列結束後施放（阿哈時刻、額外回合中不能插入終結技）
+    const pearlAt = (key, t, act) => {
+      if (!P || P.fired || P.first !== key) return;
+      act.pearlFirst = true;
+      if (act.idx === P.idx && !act.extra) act.ult = true;
+      pearlUlt(t);
     };
 
     // 星神★阿哈終結技（排軸上按下的時機）：一般角色的行動、阿哈時刻結束時（key 為阿哈時刻那一列），
@@ -234,6 +243,7 @@
       const a = st.find(s => s.u.aha); if (!a) return;
       const act = { ...a.u, idx: a.idx, av: t, extra: true, exKind: 'yaoguang', key: `${a.idx}:e${++a.e}` };
       acts.push(act);
+      pearlAt(act.key, t, act);
       st.forEach(s => { if (s.u.afterAha) extraRow(s, t, 'aha'); });
       ahaPull(act.key, t, act);
     };
@@ -256,6 +266,7 @@
       cur.next = t + cur.gap;
       if (cur.u.aha) {
         // 阿哈時刻結束時的額外回合；在阿哈時刻結束時開星神★阿哈終結技，會拉下一個阿哈時刻
+        pearlAt(key, t, act);
         st.forEach(s => { if (s.u.afterAha) extraRow(s, t, 'aha'); });
         ahaPull(key, t, act);
         continue;
@@ -264,9 +275,8 @@
       // 真珠終結技
       if (P) {
         let fire = false;
-        if (!P.fired && P.first === key) { act.pearlFirst = true; fire = true; }
-        else if (P.fired && cur.idx === P.idx && cur.n === P.nextN) fire = true;
-        if (fire) { if (cur.idx === P.idx) act.ult = true; pearlUlt(t); }
+        if (!P.fired && P.first === key) pearlAt(key, t, act);
+        else if (P.fired && cur.idx === P.idx && cur.n === P.nextN) { act.ult = true; pearlUlt(t); }
       }
       // 自己的終結技（X 動一大）與拉條戰技，排在真珠終結技之後
       turnEffects(cur, t, act);
