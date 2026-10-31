@@ -189,6 +189,8 @@ select option { background: var(--surface); color: var(--ink); }
 .q::after { content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%); z-index: 20; width: max-content; max-width: 220px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); box-shadow: 0 8px 24px rgb(0 0 0 / .18); font: 400 12px/1.5 var(--sans); text-align: left; white-space: normal; opacity: 0; pointer-events: none; }
 .q:hover::after, .q:focus::after { opacity: 1; }
 .q:hover, .q:focus { border-color: var(--muted); color: var(--ink); background: var(--sunk); outline: none; }
+/* 提醒用的「!」：警示色 */
+.q.q-warn { border-color: var(--warn); color: var(--warn); }
 
 /* 按鈕 */
 .btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: 500 13px var(--sans); cursor: pointer; white-space: nowrap; }
@@ -1029,7 +1031,8 @@ function setPath(path, val) {
   ks.reduce((o, k) => o[k], S)[last] = val;
 }
 
-const tipHTML = t => (t ? `<span class="q" tabindex="0" role="note" aria-label="${esc(t)}" data-tip="${esc(t)}">?</span>` : '');
+// 說明小圖示：預設「?」，sym 可換成其他符號（例如提醒用「!」，加上 .q-warn 變警示色）
+const tipHTML = (t, sym = '?') => (t ? `<span class="q${sym === '!' ? ' q-warn' : ''}" tabindex="0" role="note" aria-label="${esc(t)}" data-tip="${esc(t)}">${sym}</span>` : '');
 function fieldHTML(key, path, value, idp, labels = {}, tips = {}) {
   const m = { ...F[key], ...(labels[key] ? { label: labels[key] } : {}), ...(tips[key] ? { tip: tips[key] } : {}) }; const id = idp + key;
   // 暴擊率和暴擊傷害放在同一個欄位裡
@@ -1696,7 +1699,7 @@ function spdResultHTML() {
       <div class="seg sm" role="group" aria-label="在排軸上設定終結技">${modes.map(([k, l]) => `<button data-act="pick-mode" data-v="${k}" aria-pressed="${k === mode}">${l}</button>`).join('')}</div>
       ${nUlt ? `<button class="btn sm" data-act="ult-clear" title="清空已設定的星神★阿哈終結技（${nUlt} 次）">清空</button>` : ''}
       ${tipHTML('星神★阿哈：在排軸上插入阿哈終結技的施放時機（可多選）。真珠：選第 1 次終結技的時機（單選）。')}</div>` : '';
-  return `<div class="panel-h"><h2>行動順序</h2>${sw}</div>
+  return `<div class="panel-h"><h2>行動順序</h2>${S.speed.chars.some(c => c.id === 'silverwolf') ? tipHTML('銀狼LV.999 的終結技施放時機會隨實戰情況變動，排軸結果可能與實戰有出入；其他角色不受影響。', '!') : ''}${sw}</div>
     ${m.aha ? ahaCalcHTML(m) : ''}
     <div class="tl-grid">${tlHTML('混沌回憶', m, 150, mode)}${tlHTML('異相仲裁', m, 300, mode)}</div>`;
 }
